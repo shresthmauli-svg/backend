@@ -11,7 +11,10 @@ router.get('/versions', authenticate, asyncHandler(ruleController.getRuleVersion
 router.get('/versions/:version', authenticate, asyncHandler(ruleController.getRuleByVersion));
 
 // Admin only write endpoints
-router.post('/', authenticate, authorize('ADMIN'), asyncHandler(ruleController.createRuleConfig));
+const validate = require('../middleware/validate');
+const { createRuleConfigSchema } = require('../validators/rule.validator');
+
+router.post('/', authenticate, authorize('ADMIN'), validate(createRuleConfigSchema), asyncHandler(ruleController.createRuleConfig));
 router.post('/:id/activate', authenticate, authorize('ADMIN'), asyncHandler(ruleController.activateRuleConfig));
 
 module.exports = router;

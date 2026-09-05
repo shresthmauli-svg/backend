@@ -3,7 +3,9 @@ const { success, error } = require('../utils/apiResponse');
 
 exports.getInspections = async (req, res) => {
   const { status, inspectorId, ruleConfigVersion, page = 1, limit = 10 } = req.query;
-  const offset = (page - 1) * limit;
+  const parsedPage = parseInt(page, 10) || 1;
+  const parsedLimit = parseInt(limit, 10) || 10;
+  const offset = (parsedPage - 1) * parsedLimit;
   const user = req.user;
 
   let query = 'SELECT * FROM inspections WHERE 1=1';
@@ -34,7 +36,7 @@ exports.getInspections = async (req, res) => {
 
   query += ` ORDER BY updated_at DESC LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}`;
   
-  const finalParams = [...queryParams, limit, offset];
+  const finalParams = [...queryParams, parsedLimit, offset];
   
   const [dataRes, countRes] = await Promise.all([
     pool.query(query, finalParams),
@@ -45,9 +47,9 @@ exports.getInspections = async (req, res) => {
   
   res.json(success(dataRes.rows, {
     total,
-    page: parseInt(page, 10),
-    limit: parseInt(limit, 10),
-    totalPages: Math.ceil(total / limit)
+    page: parsedPage,
+    limit: parsedLimit,
+    totalPages: Math.ceil(total / parsedLimit)
   }));
 };
 
@@ -96,6 +98,10 @@ exports.updateInspection = async (req, res) => {
       throw { statusCode: 409, code: 'CONFLICT', message: 'Stale update. Server version mismatch.', details: { currentVersion: existing.rows[0].server_version } };
     }
 
+    if (user.role === 'INSPECTOR' && existing.rows[0].status !== 'DRAFT' && existing.rows[0].status !== 'CONFLICTED') {
+      throw { statusCode: 400, code: 'BAD_REQUEST', message: 'Only DRAFT or CONFLICTED inspections can be updated' };
+    }
+
     // Perform partial update
     const allowedFields = ['product_name', 'brand_name', 'manufacturer_name', 'manufacturer_address', 'packer_name', 'packer_address', 'importer_name', 'importer_address', 'declared_quantity', 'mrp', 'packed_date', 'expiry_date', 'customer_care_details', 'barcode_value', 'image_references', 'ocr_payload', 'extracted_fields', 'status'];
     
@@ -136,6 +142,7 @@ exports.updateInspection = async (req, res) => {
 
 exports.submitInspection = async (req, res) => {
   const { id } = req.params;
+  const { server_version } = req.body;
   const user = req.user;
 
   const client = await pool.connect();
@@ -151,14 +158,18 @@ exports.submitInspection = async (req, res) => {
       throw { statusCode: 403, code: 'FORBIDDEN', message: 'Access denied' };
     }
 
+    if (existing.rows[0].server_version !== server_version) {
+      throw { statusCode: 409, code: 'CONFLICT', message: 'Stale update. Server version mismatch.', details: { currentVersion: existing.rows[0].server_version } };
+    }
+
     if (existing.rows[0].status !== 'DRAFT') {
       throw { statusCode: 400, code: 'BAD_REQUEST', message: 'Only DRAFT inspections can be submitted' };
     }
 
     const result = await client.query(`
       UPDATE inspections SET status = 'PENDING_REVIEW', server_version = server_version + 1, updated_at = NOW()
-      WHERE id = $1 RETURNING *
-    `, [id]);
+      WHERE id = $1 AND server_version = $2 RETURNING *
+    `, [id, server_version]);
 
     await client.query(`
       INSERT INTO inspection_events (inspection_id, actor_id, event_type, payload)

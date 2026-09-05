@@ -107,6 +107,16 @@ exports.syncInspections = async (req, res) => {
 
         const serverRecord = existing.rows[0];
 
+        // Authorization check: Only the owning inspector or an ADMIN can update
+        if (req.user.role === 'INSPECTOR' && serverRecord.inspector_id !== inspectorId) {
+          results.push({
+            clientInspectionId: item.clientInspectionId,
+            status: 'ERROR',
+            message: 'Access denied: You do not own this inspection.'
+          });
+          continue;
+        }
+
         if (serverRecord.server_version !== item.baseServerVersion) {
           // Conflict detected
           await client.query(`
@@ -124,6 +134,22 @@ exports.syncInspections = async (req, res) => {
           });
         } else {
           // Accept update
+          if (item.operation === 'SUBMIT' && serverRecord.status !== 'DRAFT') {
+            results.push({
+              clientInspectionId: item.clientInspectionId,
+              status: 'ERROR',
+              message: 'Only DRAFT inspections can be submitted.'
+            });
+            continue;
+          }
+          if (item.operation === 'UPDATE' && req.user.role === 'INSPECTOR' && serverRecord.status !== 'DRAFT' && serverRecord.status !== 'CONFLICTED') {
+            results.push({
+              clientInspectionId: item.clientInspectionId,
+              status: 'ERROR',
+              message: 'Only DRAFT or CONFLICTED inspections can be updated.'
+            });
+            continue;
+          }
           const newStatus = item.operation === 'SUBMIT' ? 'PENDING_REVIEW' : (item.payload.status || serverRecord.status);
           
           const updateRes = await client.query(`
