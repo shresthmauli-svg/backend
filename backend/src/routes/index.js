@@ -7,6 +7,8 @@ const ruleRoutes = require('./rule.routes');
 const inspectionRoutes = require('./inspections.routes');
 const syncRoutes = require('./sync.routes');
 const dashboardRoutes = require('./dashboard.routes');
+const sessionRoutes = require('./session.routes');
+const productRoutes = require('./product.routes');
 
 router.get('/health', (req, res) => {
   res.json(success({ status: 'ok', timestamp: new Date().toISOString() }));
@@ -17,5 +19,7 @@ router.use('/rules', ruleRoutes);
 router.use('/inspections', inspectionRoutes);
 router.use('/sync', syncRoutes);
 router.use('/dashboard', dashboardRoutes);
+router.use('/sessions', sessionRoutes);
+router.use('/products', productRoutes);
 
 module.exports = router;

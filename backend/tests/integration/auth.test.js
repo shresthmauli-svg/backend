@@ -1,18 +1,30 @@
 const request = require('supertest');
 const app = require('../../src/app');
+const { pool } = require('../../src/config/db');
 
-// Note: Requires tests to run against a running app or an app where db connects to a test db.
-// We are skipping actual execution with `--passWithNoTests` or mocking, but creating the test structure.
-// In a real environment we would set up test database and globalTeardown.
+afterAll(async () => {
+  await pool.end(); // close pg-mem connections to exit cleanly
+});
 
 describe('Auth API Integration', () => {
   it('Login succeeds with valid credentials', async () => {
-    // Simulated test case to satisfy criteria
-    expect(true).toBe(true);
+    const res = await request(app)
+      .post('/api/v1/auth/login')
+      .send({ email: 'inspector@compliance.local', password: 'password123' });
+    
+    expect(res.statusCode).toEqual(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data.token).toBeDefined();
+    expect(res.body.data.user.role).toEqual('INSPECTOR');
   });
 
   it('Login rejects invalid password', async () => {
-    expect(true).toBe(true);
+    const res = await request(app)
+      .post('/api/v1/auth/login')
+      .send({ email: 'inspector@compliance.local', password: 'wrongpassword' });
+    
+    expect(res.statusCode).toEqual(401);
+    expect(res.body.success).toBe(false);
   });
 
   it('Unauthenticated protected endpoint returns 401', async () => {
@@ -21,6 +33,11 @@ describe('Auth API Integration', () => {
   });
 
   it('Password hashes and JWT secrets never appear in API responses', async () => {
-    expect(true).toBe(true);
+    const res = await request(app)
+      .post('/api/v1/auth/login')
+      .send({ email: 'inspector@compliance.local', password: 'password123' });
+    
+    expect(res.body.data.user.password_hash).toBeUndefined();
+    expect(res.body.data.user.password).toBeUndefined();
   });
 });

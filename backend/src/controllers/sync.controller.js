@@ -48,11 +48,11 @@ exports.syncInspections = async (req, res) => {
           INSERT INTO inspections (
             client_inspection_id, inspector_id, status, product_name, brand_name,
             manufacturer_name, manufacturer_address, packer_name, packer_address,
-            importer_name, importer_address, declared_quantity, mrp, packed_date, expiry_date,
+            importer_name, importer_address, declared_quantity, mrp, mrp_raw_text, packed_date, expiry_date,
             customer_care_details, barcode_value, image_references, ocr_payload, extracted_fields,
             rule_config_version, client_created_at, client_updated_at
           ) VALUES (
-            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23
+            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24
           )
           ON CONFLICT (client_inspection_id) DO NOTHING
           RETURNING id, server_version, updated_at
@@ -61,7 +61,7 @@ exports.syncInspections = async (req, res) => {
           item.payload.productName, item.payload.brandName, item.payload.manufacturerName,
           item.payload.manufacturerAddress, item.payload.packerName, item.payload.packerAddress,
           item.payload.importerName, item.payload.importerAddress, item.payload.declaredQuantity,
-          item.payload.mrp, item.payload.packedDate, item.payload.expiryDate,
+          item.payload.mrp, item.payload.mrpRawText, item.payload.packedDate, item.payload.expiryDate,
           item.payload.customerCareDetails, item.payload.barcodeValue,
           JSON.stringify(item.payload.imageReferences), JSON.stringify(item.payload.ocrPayload),
           JSON.stringify(item.payload.extractedFields), item.ruleConfigVersion,
@@ -157,11 +157,11 @@ exports.syncInspections = async (req, res) => {
               status = $1, product_name = $2, brand_name = $3, manufacturer_name = $4,
               manufacturer_address = $5, packer_name = $6, packer_address = $7,
               importer_name = $8, importer_address = $9, declared_quantity = $10,
-              mrp = $11, packed_date = $12, expiry_date = $13, customer_care_details = $14,
-              barcode_value = $15, image_references = $16, ocr_payload = $17,
-              extracted_fields = $18, client_updated_at = $19, server_version = server_version + 1,
+              mrp = $11, mrp_raw_text = $12, packed_date = $13, expiry_date = $14, customer_care_details = $15,
+              barcode_value = $16, image_references = $17, ocr_payload = $18,
+              extracted_fields = $19, client_updated_at = $20, server_version = server_version + 1,
               synced_at = NOW(), updated_at = NOW()
-            WHERE id = $20 AND server_version = $21
+            WHERE id = $21 AND server_version = $22
             RETURNING server_version, updated_at
           `, [
             newStatus,
@@ -175,6 +175,7 @@ exports.syncInspections = async (req, res) => {
             item.payload.importerAddress !== undefined ? item.payload.importerAddress : serverRecord.importer_address,
             item.payload.declaredQuantity !== undefined ? item.payload.declaredQuantity : serverRecord.declared_quantity,
             item.payload.mrp !== undefined ? item.payload.mrp : serverRecord.mrp,
+            item.payload.mrpRawText !== undefined ? item.payload.mrpRawText : serverRecord.mrp_raw_text,
             item.payload.packedDate !== undefined ? item.payload.packedDate : serverRecord.packed_date,
             item.payload.expiryDate !== undefined ? item.payload.expiryDate : serverRecord.expiry_date,
             item.payload.customerCareDetails !== undefined ? item.payload.customerCareDetails : serverRecord.customer_care_details,

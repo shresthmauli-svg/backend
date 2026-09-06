@@ -85,7 +85,7 @@ exports.updateInspection = async (req, res) => {
   try {
     await client.query('BEGIN');
     
-    const existing = await client.query('SELECT inspector_id, server_version FROM inspections WHERE id = $1', [id]);
+    const existing = await client.query('SELECT inspector_id, server_version, status FROM inspections WHERE id = $1', [id]);
     if (existing.rows.length === 0) {
       throw { statusCode: 404, code: 'NOT_FOUND', message: 'Inspection not found' };
     }
